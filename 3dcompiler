@@ -1,0 +1,47 @@
+from ultralytics import YOLO
+import cv2
+from lxml import etree
+import os
+
+# Load model
+model = YOLO("piping_model.pt")
+
+# Image
+image_path = "piping.jpg"
+img = cv2.imread(image_path)
+height, width, depth = img.shape
+
+# Run detection
+results = model(img)[0]
+
+# Create XML root
+annotation = etree.Element("annotation")
+
+etree.SubElement(annotation, "filename").text = os.path.basename(image_path)
+
+size = etree.SubElement(annotation, "size")
+etree.SubElement(size, "width").text = str(width)
+etree.SubElement(size, "height").text = str(height)
+etree.SubElement(size, "depth").text = str(depth)
+
+# Add detected objects
+for box in results.boxes:
+    cls_id = int(box.cls[0])
+    label = model.names[cls_id]
+    x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+    obj = etree.SubElement(annotation, "object")
+    etree.SubElement(obj, "name").text = label
+
+    bndbox = etree.SubElement(obj, "bndbox")
+    etree.SubElement(bndbox, "xmin").text = str(x1)
+    etree.SubElement(bndbox, "ymin").text = str(y1)
+    etree.SubElement(bndbox, "xmax").text = str(x2)
+    etree.SubElement(bndbox, "ymax").text = str(y2)
+
+# Save XML
+xml_output = image_path.replace(".jpg", ".xml")
+with open(xml_output, "wb") as f:
+    f.write(etree.tostring(annotation, pretty_print=True))
+
+print(f"XML saved as {xml_output}")
